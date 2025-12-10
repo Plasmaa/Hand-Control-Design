@@ -3,7 +3,7 @@ import * as THREE from 'three';
 export class ParticleSystem {
     constructor(scene) {
         this.scene = scene;
-        this.count = 10000; // Increased count for better definition
+        this.count = 10000;
         this.particles = null;
         this.geometry = null;
         this.material = null;
@@ -25,7 +25,6 @@ export class ParticleSystem {
     init() {
         this.geometry = new THREE.BufferGeometry();
 
-        // Initialize with sphere
         this.calculateShape('sphere', this.currentPositions);
         this.calculateShape('sphere', this.targetPositions);
 
@@ -57,14 +56,11 @@ export class ParticleSystem {
                 y = r * Math.sin(phi) * Math.sin(theta);
                 z = r * Math.cos(phi);
             } else if (shape === 'heart') {
-                // Heart surface equation
                 const t = Math.random() * Math.PI * 2;
                 const u = Math.random() * Math.PI;
-                // A variation of heart shape
                 x = 16 * Math.pow(Math.sin(t), 3);
                 y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-                z = u * 2 - 3; // Extrude slightly
-                // Randomize inside
+                z = u * 2 - 3;
                 const s = Math.random();
                 x *= s * 0.3;
                 y *= s * 0.3;
@@ -80,7 +76,6 @@ export class ParticleSystem {
                 z = (Math.random() - 0.5) * 2;
             } else if (shape === 'saturn') {
                 if (i < this.count * 0.3) {
-                    // Planet
                     const r = 3 * Math.cbrt(Math.random());
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
@@ -88,39 +83,36 @@ export class ParticleSystem {
                     y = r * Math.sin(phi) * Math.sin(theta);
                     z = r * Math.cos(phi);
                 } else {
-                    // Rings
                     const r = 5 + Math.random() * 4;
                     const theta = Math.random() * Math.PI * 2;
                     x = r * Math.cos(theta);
                     z = r * Math.sin(theta);
-                    y = (Math.random() - 0.5) * 0.5; // Thin disk
+                    y = (Math.random() - 0.5) * 0.5;
                 }
             } else if (shape === 'buddha') {
-                // Simplified meditating figure (stacked spheres/ovals)
                 const p = Math.random();
-                if (p < 0.3) { // Head
+                if (p < 0.3) {
                     const r = 1.5 * Math.cbrt(Math.random());
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
                     x = r * Math.sin(phi) * Math.cos(theta);
                     y = r * Math.sin(phi) * Math.sin(theta) + 4;
                     z = r * Math.cos(phi);
-                } else if (p < 0.7) { // Body
+                } else if (p < 0.7) {
                     const r = 2.5 * Math.cbrt(Math.random());
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos(2 * Math.random() - 1);
                     x = r * Math.sin(phi) * Math.cos(theta);
                     y = r * Math.sin(phi) * Math.sin(theta);
                     z = r * Math.cos(phi);
-                } else { // Legs/Base
+                } else {
                     const r = 4 * Math.sqrt(Math.random());
-                    const theta = Math.random() * Math.PI; // Half circle
+                    const theta = Math.random() * Math.PI;
                     x = r * Math.cos(theta);
                     y = -2.5 + (Math.random() - 0.5);
-                    z = r * Math.sin(theta) * 0.5; // Flattened
+                    z = r * Math.sin(theta) * 0.5;
                 }
             } else if (shape === 'fireworks') {
-                // Burst from center
                 const r = 8 * Math.pow(Math.random(), 0.5);
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos(2 * Math.random() - 1);
@@ -136,10 +128,17 @@ export class ParticleSystem {
     }
 
     update(deltaTime, handState) {
-        // Update state from hand input
         if (handState) {
+            // Smoothly interpolate values
             this.expansion = THREE.MathUtils.lerp(this.expansion, handState.expansion, 0.1);
             this.tension = THREE.MathUtils.lerp(this.tension, handState.tension, 0.1);
+
+            // Apply rotation from hand
+            // We use a smaller lerp factor for rotation to avoid jitter
+            this.particles.rotation.z = THREE.MathUtils.lerp(this.particles.rotation.z, handState.rotation, 0.05);
+        } else {
+            // Idle rotation
+            this.particles.rotation.y += 0.001;
         }
 
         const positions = this.geometry.attributes.position.array;
@@ -147,7 +146,6 @@ export class ParticleSystem {
         // Morphing logic
         for (let i = 0; i < this.count; i++) {
             const i3 = i * 3;
-            // Lerp current position towards target
             positions[i3] += (this.targetPositions[i3] - positions[i3]) * 0.05;
             positions[i3 + 1] += (this.targetPositions[i3 + 1] - positions[i3 + 1]) * 0.05;
             positions[i3 + 2] += (this.targetPositions[i3 + 2] - positions[i3 + 2]) * 0.05;
@@ -156,11 +154,8 @@ export class ParticleSystem {
         this.geometry.attributes.position.needsUpdate = true;
 
         // Update particle visuals
-        this.material.size = this.baseSize * (1 + this.tension * 2);
+        this.material.size = this.baseSize * (1 + this.tension * 0.5); // Less dramatic size change
         this.particles.scale.setScalar(this.expansion);
-
-        // Rotate the whole system slowly
-        this.particles.rotation.y += 0.001 + (this.tension * 0.02);
     }
 
     setColor(hex) {

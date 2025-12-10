@@ -37,45 +37,58 @@ export class HandTracker {
         let state = {
             expansion: 1.0,
             tension: 0.0,
+            rotation: 0.0,
             handsDetected: 0
         };
 
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
             state.handsDetected = results.multiHandLandmarks.length;
+            const landmarks = results.multiHandLandmarks[0]; // Primary hand
 
-            // Calculate expansion (distance between hands)
-            if (state.handsDetected === 2) {
-                const hand1 = results.multiHandLandmarks[0][9]; // Middle finger MCP
-                const hand2 = results.multiHandLandmarks[1][9];
+            // 1. Calculate Openness (Avg distance from wrist to fingertips)
+            const wrist = landmarks[0];
+            const tips = [4, 8, 12, 16, 20]; // Thumb, Index, Middle, Ring, Pinky tips
+            let avgDist = 0;
 
-                // Simple distance in screen space (x, y)
-                const dx = hand1.x - hand2.x;
-                const dy = hand1.y - hand2.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+            tips.forEach(i => {
+                const dx = landmarks[i].x - wrist.x;
+                const dy = landmarks[i].y - wrist.y;
+                avgDist += Math.sqrt(dx * dx + dy * dy);
+            });
+            avgDist /= 5;
 
-                // Map distance to expansion factor (approx 0.1 to 0.8 range usually)
-                state.expansion = 1.0 + (dist * 2.0);
+            // Map avgDist to expansion
+            // Closed fist ~ 0.1-0.15, Open hand ~ 0.3-0.4 (normalized coords)
+            // We map 0.15 -> 0.1 (shrunk) and 0.35 -> 1.5 (expanded)
+            const minOpen = 0.15;
+            const maxOpen = 0.4;
+            const t = Math.max(0, Math.min(1, (avgDist - minOpen) / (maxOpen - minOpen)));
+            state.expansion = 0.2 + (t * 1.8); // Range 0.2 to 2.0
+
+            // 2. Pinch Detection (Thumb tip to Index tip)
+            const thumb = landmarks[4];
+            const index = landmarks[8];
+            const pinchDist = Math.sqrt(
+                Math.pow(thumb.x - index.x, 2) +
+                Math.pow(thumb.y - index.y, 2)
+            );
+
+            if (pinchDist < 0.05) {
+                state.expansion = 0.1; // Force shrink on pinch
             }
 
-            // Calculate tension (average closure of hands)
-            let totalClosure = 0;
-            results.multiHandLandmarks.forEach(landmarks => {
-                // Distance between wrist (0) and middle finger tip (12)
-                const wrist = landmarks[0];
-                const tip = landmarks[12];
-                const dx = wrist.x - tip.x;
-                const dy = wrist.y - tip.y;
-                const dz = wrist.z - tip.z; // Z is relative depth
-                const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            // 3. Rotation (Wrist to Middle Finger MCP)
+            // This gives the orientation of the hand
+            const middleMCP = landmarks[9];
+            const dx = middleMCP.x - wrist.x;
+            const dy = middleMCP.y - wrist.y;
+            // Calculate angle. Note: Y is down in screen coords, so we might need to flip or adjust.
+            // We want 0 to be upright.
+            // Atan2(y, x)
+            state.rotation = -Math.atan2(dx, dy) + Math.PI;
 
-                // Open hand is approx 0.2-0.3, closed is < 0.1
-                // Normalize: 0 (open) to 1 (closed)
-                // This is a rough approximation, can be tuned
-                const closure = Math.max(0, Math.min(1, (0.25 - len) * 5));
-                totalClosure += closure;
-            });
-
-            state.tension = totalClosure / state.handsDetected;
+            // 4. Tension (Inverse of expansion for other effects)
+            state.tension = 1.0 - t;
         }
 
         this.onResultsCallback(state);
