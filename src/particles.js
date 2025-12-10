@@ -133,9 +133,28 @@ export class ParticleSystem {
             this.expansion = THREE.MathUtils.lerp(this.expansion, handState.expansion, 0.1);
             this.tension = THREE.MathUtils.lerp(this.tension, handState.tension, 0.1);
 
-            // Apply rotation from hand
-            // We use a smaller lerp factor for rotation to avoid jitter
-            this.particles.rotation.z = THREE.MathUtils.lerp(this.particles.rotation.z, handState.rotation, 0.05);
+            // Apply rotation from hand position (Look around)
+            // Center is (0.5, 0.5). Map to -PI to PI range for rotation
+            const targetRotX = (handState.palmCenter.y - 0.5) * 2; // Up/Down
+            const targetRotY = (handState.palmCenter.x - 0.5) * 2; // Left/Right
+
+            this.particles.rotation.x = THREE.MathUtils.lerp(this.particles.rotation.x, targetRotX, 0.05);
+            this.particles.rotation.y = THREE.MathUtils.lerp(this.particles.rotation.y, targetRotY, 0.05);
+
+            // Apply Camera Zoom based on Hand Depth (Hand Size)
+            // handSize ~ 0.1 (Far) to 0.4 (Close)
+            // Map to Camera Z: Far -> 5, Close -> 40
+            // We want: Hand Far (Small) -> Zoom In (Camera Close, Z small)
+            //          Hand Close (Large) -> Zoom Out (Camera Far, Z large)
+            const minSize = 0.1;
+            const maxSize = 0.4;
+            const t = Math.max(0, Math.min(1, (handState.handSize - minSize) / (maxSize - minSize)));
+
+            // t=0 (Far/Small) -> Z=10 (Close up)
+            // t=1 (Close/Large) -> Z=50 (Far away)
+            const targetZ = 10 + (t * 40);
+            this.scene.camera.position.z = THREE.MathUtils.lerp(this.scene.camera.position.z, targetZ, 0.1);
+
         } else {
             // Idle rotation
             this.particles.rotation.y += 0.001;

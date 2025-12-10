@@ -80,15 +80,26 @@ export class HandTracker {
                 state.expansion = 0.1; // Force shrink on pinch
             }
 
-            // 3. Rotation (Wrist to Middle Finger MCP)
-            // This gives the orientation of the hand
+            // 3. Rotation & Position (Wrist to Middle Finger MCP)
             const middleMCP = landmarks[9];
             const dx = middleMCP.x - wrist.x;
             const dy = middleMCP.y - wrist.y;
-            // Calculate angle. Note: Y is down in screen coords, so we might need to flip or adjust.
-            // We want 0 to be upright.
-            // Atan2(y, x)
             state.rotation = -Math.atan2(dx, dy) + Math.PI;
+
+            // Calculate Hand Position (Center of palm approx)
+            state.palmCenter = {
+                x: (wrist.x + middleMCP.x) / 2,
+                y: (wrist.y + middleMCP.y) / 2
+            };
+
+            // Calculate Hand Size (Proxy for Depth)
+            // Distance between wrist and middle finger tip
+            const middleTip = landmarks[12];
+            const sizeDist = Math.sqrt(
+                Math.pow(middleTip.x - wrist.x, 2) +
+                Math.pow(middleTip.y - wrist.y, 2)
+            );
+            state.handSize = sizeDist; // Larger = Closer to camera
 
             // 4. Tension (Inverse of expansion for other effects)
             state.tension = 1.0 - t;
