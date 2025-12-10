@@ -59,11 +59,14 @@ export class HandTracker {
 
             // Map avgDist to expansion
             // Closed fist ~ 0.1-0.15, Open hand ~ 0.3-0.4 (normalized coords)
-            // We map 0.15 -> 0.1 (shrunk) and 0.35 -> 1.5 (expanded)
+            // We map 0.15 -> 0.1 (shrunk) and 0.35 -> 8.0 (fully immersive)
             const minOpen = 0.15;
             const maxOpen = 0.4;
             const t = Math.max(0, Math.min(1, (avgDist - minOpen) / (maxOpen - minOpen)));
-            state.expansion = 0.2 + (t * 1.8); // Range 0.2 to 2.0
+
+            // Use exponential curve for dramatic zoom at the end
+            // 0.2 base, up to 8.0
+            state.expansion = 0.2 + (Math.pow(t, 2) * 7.8);
 
             // 2. Pinch Detection (Thumb tip to Index tip)
             const thumb = landmarks[4];

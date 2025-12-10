@@ -154,7 +154,12 @@ export class ParticleSystem {
         this.geometry.attributes.position.needsUpdate = true;
 
         // Update particle visuals
-        this.material.size = this.baseSize * (1 + this.tension * 0.5); // Less dramatic size change
+        // At high expansion (zoom), we don't want particles to get too huge, 
+        // but we want them visible.
+        // Base size 0.05. 
+        // If expansion is 8.0, we are "inside".
+        // Let's keep size relatively stable or slightly larger but not linear with expansion.
+        this.material.size = this.baseSize * (1 + this.tension * 0.5);
         this.particles.scale.setScalar(this.expansion);
     }
 
